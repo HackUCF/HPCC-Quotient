@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -104,6 +103,31 @@ func viewScoreboard(c *gin.Context) {
 	tmpl.ParseFiles("templates/scoreboard.html")
 
 	teams, round, err := dbGetScoreboard()
+
+    room := c.Query("room")
+	if room != "" {
+		filteredTeams := []TeamData{}
+		for _, team := range teams {
+			if room == "187" && team.ID >= 1 && team.ID <= 8 {
+				filteredTeams = append(filteredTeams, team)
+			}
+			if room == "188" && team.ID >= 9 && team.ID <= 15 {
+				filteredTeams = append(filteredTeams, team)
+			}
+			if room == "260" && team.ID >= 16 && team.ID <= 22 {
+				filteredTeams = append(filteredTeams, team)
+			}
+		}
+		teams = filteredTeams
+	}
+	
+	for _, team := range teams {
+		errorPrint(team.ID)
+	}
+
+	for _, team := range teams {
+        errorPrint(team.ID)
+    }
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
