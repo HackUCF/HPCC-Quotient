@@ -119,7 +119,7 @@ func viewScoreboard(c *gin.Context) {
 		if errLo == nil && errHi == nil {
 			filteredTeams := []TeamData{}
 			for _, team := range teams {
-				if team.ID >= lo && team.ID <= hi {
+				if team.ID >= uint(lo) && team.ID <= uint(hi) {
 					filteredTeams = append(filteredTeams, team)
 				}
 			}
