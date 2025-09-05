@@ -40,7 +40,7 @@ COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/scripts ./scripts
 
 # Create necessary directories
-RUN mkdir -p config plots submissions injects temporary scoredfiles
+RUN mkdir -p config data/plots data/submissions data/injects data/temporary data/scoredfiles data/keys
 
 # Set ownership
 RUN chown -R quotient:quotient /app
