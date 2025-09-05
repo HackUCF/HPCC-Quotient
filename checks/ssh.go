@@ -39,7 +39,7 @@ func (c Ssh) Run(teamID uint, teamIdentifier string, target string, res chan Res
 	config.SetDefaults()
 	config.Ciphers = append(config.Ciphers, "3des-cbc")
 	if c.PrivKey != "" {
-		key, err := os.ReadFile("./scoredfiles/" + c.PrivKey)
+		key, err := os.ReadFile("./data/scoredfiles/" + c.PrivKey)
 		if err != nil {
 			res <- Result{
 				Error: "error opening pubkey",

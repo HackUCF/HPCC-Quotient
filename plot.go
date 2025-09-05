@@ -56,10 +56,10 @@ func makeGraphs() error {
 		return err
 	}
 
-	graphScoresOverTime(dataOverTime, lastRound, "plots/points-over-time-light.png", lightmode)
-	graphScoresOverTime(dataOverTime, lastRound, "plots/points-over-time-dark.png", darkmode)
-	graphTotalScores(dataScores, lastRound, "plots/scores-light.png", lightmode)
-	graphTotalScores(dataScores, lastRound, "plots/scores-dark.png", darkmode)
+	graphScoresOverTime(dataOverTime, lastRound, "data/plots/points-over-time-light.png", lightmode)
+	graphScoresOverTime(dataOverTime, lastRound, "data/plots/points-over-time-dark.png", darkmode)
+	graphTotalScores(dataScores, lastRound, "data/plots/scores-light.png", lightmode)
+	graphTotalScores(dataScores, lastRound, "data/plots/scores-dark.png", darkmode)
 	// graphCurrentChecks(dataThisRound, "plots/current-status-light.png", lightmode)
 	// graphCurrentChecks(dataThisRound, "plots/current-status-dark.png", darkmode)
 
@@ -435,7 +435,7 @@ func (c HSL) ToRGB() RGB {
 }
 
 func writeFile(buf []byte, filename string) error {
-	tmpPath := "plots/"
+	tmpPath := "data/plots/"
 	err := os.MkdirAll(tmpPath, 0700)
 	if err != nil {
 		return err
