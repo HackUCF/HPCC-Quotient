@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -106,6 +107,12 @@ func readKeyFiles() ([]byte, []byte, error) {
 }
 
 func generateJWTKeys() ([]byte, []byte, error) {
+	// Ensure the keys directory exists
+	keysDir := filepath.Dir(eventConf.JWTPrivateKey)
+	if err := os.MkdirAll(keysDir, 0755); err != nil {
+		return nil, nil, fmt.Errorf("failed to create keys directory: %w", err)
+	}
+
 	// Generate 2048-bit RSA key pair
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

@@ -95,6 +95,11 @@ func loadConfigs() {
 }
 
 func bootstrap() {
+	// Create necessary directories
+	if err := createDataDirectories(); err != nil {
+		log.Fatalln("Failed to create data directories:", err)
+	}
+
 	var err error // this way we can avoid using := for below statement and use global "db"
 	db, err = gorm.Open(postgres.Open(eventConf.DBConnectURL), &gorm.Config{TranslateError: true})
 	if err != nil {
@@ -247,6 +252,27 @@ func bootstrap() {
 		errorPrint("FAILED TO MAKE GRAPHS FOR ROUND", roundNumber, ":", err.Error())
 	}
 	debugPrint("Finished generating graphs")
+}
+
+func createDataDirectories() error {
+	directories := []string{
+		"data/plots",
+		"data/submissions",
+		"data/injects",
+		"data/temporary",
+		"data/scoredfiles",
+		"data/keys",
+		"data/submissions/pcrs",
+	}
+
+	for _, dir := range directories {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+		debugPrint("Created directory:", dir)
+	}
+
+	return nil
 }
 
 func generateCredlist(path string, name string, team TeamData) error {
