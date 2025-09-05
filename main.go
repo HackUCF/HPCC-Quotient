@@ -28,7 +28,7 @@ var (
 	eventConf = Config{}
 	db        = &gorm.DB{}
 
-	configPath = flag.String("c", "config/event.conf", "configPath")
+	configPath = flag.String("c", "./config/event.conf", "configPath")
 	debug      = flag.Bool("d", false, "debugFlag")
 
 	roundNumber int
@@ -81,12 +81,17 @@ func loadConfigs() {
 		}
 		defer file.Close()
 	}
-	eventConf = readConfig(*configPath)
 
-	err := checkConfig(&eventConf)
+	conf, err := NewConfig(*configPath)
 	if err != nil {
-		log.Fatalln(errors.Wrap(err, "illegal config"))
+		log.Fatalln(errors.Wrap(err, "failed to load config"))
 	}
+
+	if err := conf.ValidateConfig(); err != nil {
+		log.Fatalln(errors.Wrap(err, "invalid config"))
+	}
+
+	eventConf = *conf
 }
 
 func bootstrap() {
@@ -248,12 +253,12 @@ func generateCredlist(path string, name string, team TeamData) error {
 	credentials[team.ID][name] = make(map[string]string)
 	credentialsMutex[team.ID][name] = &sync.Mutex{}
 	// flesh out default credlists to teams
-	teamSpecificCredlist := filepath.Join("submissions/pcrs/", fmt.Sprint(team.ID), name)
+	teamSpecificCredlist := filepath.Join("data/submissions/pcrs/", fmt.Sprint(team.ID), name)
 	_, err := os.Stat(teamSpecificCredlist)
 	// if file doesn't exist
 	if err != nil {
 		debugPrint("No", path, "file found for", team.Name, "... creating default credlist")
-		if err := os.MkdirAll(filepath.Join("submissions/pcrs/", fmt.Sprint(team.ID)), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Join("data/submissions/pcrs/", fmt.Sprint(team.ID)), os.ModePerm); err != nil {
 			log.Fatalln("Failed to create copy credlist for team:", team.ID, team.Name, err.Error())
 		}
 
@@ -329,11 +334,11 @@ func startEvent(beginTime time.Time) {
 	addPublicRoutes(publicAPIRoutes)
 
 	authAPIRoutes := router.Group("/api")
-	authAPIRoutes.Use(authRequired)
+	authAPIRoutes.Use(authRequiredAPI)
 	addAuthRoutes(authAPIRoutes)
 
 	adminAPIRoutes := router.Group("/api")
-	adminAPIRoutes.Use(adminAuthRequired)
+	adminAPIRoutes.Use(adminAuthRequiredAPI)
 	addAdminRoutes(adminAPIRoutes)
 
 	// Start the event

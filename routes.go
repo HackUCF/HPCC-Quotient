@@ -47,14 +47,14 @@ func addViewRoutesTeam(router *gin.RouterGroup) {
 	}
 	router.GET("/overview", viewOverview)
 	if !eventConf.DisableHeadToHead {
-		router.Static("/plots", "./plots")
+		router.Static("/plots", "./data/plots")
 	}
 }
 
 func addViewRoutesAdmin(router *gin.RouterGroup) {
 	router.GET("/engine", viewEngine)
 	if eventConf.DisableHeadToHead {
-		router.Static("/plots", "./plots")
+		router.Static("/plots", "./data/plots")
 	}
 	if !eventConf.EasyPCR {
 		router.GET("/pcrs", viewPCRs)
@@ -183,19 +183,19 @@ func resetEngine(c *gin.Context) {
 	log.Println("[ENGINE] ===== Deleting PCRs")
 	for teamid, teamMap := range credentialsMutex {
 		for _, credlist := range teamMap {
-			os.RemoveAll(filepath.Join("submissions/pcrs", fmt.Sprint(teamid)))
+			os.RemoveAll(filepath.Join("data/submissions/pcrs", fmt.Sprint(teamid)))
 			credlist.Unlock()
 		}
 	}
 
 	log.Println("[ENGINE] ===== Deleting graphs")
-	plotDir, err := os.ReadDir("plots")
+	plotDir, err := os.ReadDir("data/plots")
 	if err != nil {
 		log.Fatalln("Failed to open plots directory:", err)
 	}
 	for _, file := range plotDir {
 		if strings.HasSuffix(file.Name(), ".png") {
-			os.Remove(filepath.Join("plots", file.Name()))
+			os.Remove(filepath.Join("data/plots", file.Name()))
 		}
 	}
 
@@ -377,7 +377,7 @@ func getTeamScore(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -429,7 +429,7 @@ func exportScores(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	exportPath := "./temporary/scores.json"
+	exportPath := "./data/temporary/scores.json"
 	os.WriteFile(exportPath, jsonData, 0644)
 	c.File(exportPath)
 }
@@ -442,7 +442,7 @@ func exportConfig(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
-	exportPath := "./temporary/export.conf"
+	exportPath := "./data/temporary/export.conf"
 	os.WriteFile(exportPath, buf.Bytes(), 0644)
 	c.File(exportPath)
 }
@@ -455,7 +455,7 @@ func submitConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := checkConfig(&configForm); err != nil {
+	if err := configForm.ValidateConfig(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": strings.Split(err.Error(), "\n")})
 		return
 	}
@@ -504,7 +504,7 @@ func submitPCR(c *gin.Context) {
 		}
 	}
 
-	teamSpecificCredlist := filepath.Join("submissions/pcrs", fmt.Sprint(teamid), pcrForm.CredList)
+	teamSpecificCredlist := filepath.Join("data/submissions/pcrs", fmt.Sprint(teamid), pcrForm.CredList)
 
 	// Write the modified content back to the file
 	credentialsMutex[teamid][pcrForm.CredList].Lock()
@@ -715,7 +715,7 @@ func addInject(c *gin.Context) {
 	var filenames []string
 	for _, fileHeader := range injectForm.Files {
 		filenames = append(filenames, filepath.Base(fileHeader.Filename))
-		dst := filepath.Join("./injects", injectForm.Title, filepath.Base(fileHeader.Filename))
+		dst := filepath.Join("./data/injects", injectForm.Title, filepath.Base(fileHeader.Filename))
 		if err := c.SaveUploadedFile(fileHeader, dst); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 			return
@@ -738,7 +738,7 @@ func addInject(c *gin.Context) {
 			return
 		}
 		// Delete uploaded files if database function fails
-		os.RemoveAll(filepath.Join("./injects", injectForm.Title))
+		os.RemoveAll(filepath.Join("./data/injects", injectForm.Title))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -847,11 +847,11 @@ func updateInject(c *gin.Context) {
 	}
 
 	if len(injectForm.Files) != 0 {
-		os.RemoveAll(filepath.Join("./injects", injectForm.Title))
+		os.RemoveAll(filepath.Join("./data/injects", injectForm.Title))
 		var filenames []string
 		for _, fileHeader := range injectForm.Files {
 			filenames = append(filenames, filepath.Base(fileHeader.Filename))
-			dst := filepath.Join("./injects", injectForm.Title, filepath.Base(fileHeader.Filename))
+			dst := filepath.Join("./data/injects", injectForm.Title, filepath.Base(fileHeader.Filename))
 			if err := c.SaveUploadedFile(fileHeader, dst); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 				return
@@ -909,7 +909,7 @@ func submitInject(c *gin.Context) {
 	var filenames []string
 	for _, fileHeader := range submissionForm.Files {
 		filenames = append(filenames, filepath.Base(fileHeader.Filename))
-		dst := filepath.Join("./submissions", inject.Title, fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid)), filepath.Base(fileHeader.Filename))
+		dst := filepath.Join("./data/submissions", inject.Title, fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid)), filepath.Base(fileHeader.Filename))
 		if err := c.SaveUploadedFile(fileHeader, dst); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 			return
@@ -928,7 +928,7 @@ func submitInject(c *gin.Context) {
 
 	if err != nil {
 		// Delete uploaded files if database function fails
-		os.RemoveAll(filepath.Join("./submissions", fmt.Sprint(injectid), fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid))))
+		os.RemoveAll(filepath.Join("./data/submissions", fmt.Sprint(injectid), fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid))))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -955,7 +955,7 @@ func deleteInject(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	os.RemoveAll(filepath.Join("./injects", inject.Title))
+	os.RemoveAll(filepath.Join("./data/injects", inject.Title))
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
@@ -971,7 +971,7 @@ func getTeamInjectSubmissions(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -1044,7 +1044,7 @@ func downloadInjectFile(c *gin.Context) {
 
 	for _, name := range inject.InjectFileNames {
 		if filename == name {
-			filename = filepath.Join("./injects", inject.Title, filepath.Base(filename))
+			filename = filepath.Join("./data/injects", inject.Title, filepath.Base(filename))
 			c.File(filename)
 			return
 		}
@@ -1066,7 +1066,7 @@ func downloadSubmissionFile(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -1086,7 +1086,7 @@ func downloadSubmissionFile(c *gin.Context) {
 		if submission.AttemptNumber == submissionid {
 			for _, name := range submission.SubmissionFileNames {
 				if filename == name {
-					filename = filepath.Join("./submissions", inject.Title, fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid)), filepath.Base(filename))
+					filename = filepath.Join("./data/submissions", inject.Title, fmt.Sprint(teamid), fmt.Sprint("attempt", fmt.Sprint(submissionid)), filepath.Base(filename))
 					c.File(filename)
 					return
 				}
@@ -1136,7 +1136,7 @@ func getTeamUptime(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -1163,7 +1163,7 @@ func getTeamSLA(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -1192,7 +1192,7 @@ func getTeamRounds(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -1216,7 +1216,7 @@ func getTeamService(c *gin.Context) {
 	}
 
 	if !claims.Admin && claims.ID != uint(teamid) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 

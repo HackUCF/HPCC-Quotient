@@ -1,12 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
-
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -74,23 +77,74 @@ func getClaimsFromToken(tokenString string) (jwt.MapClaims, error) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		return claims, nil
 	}
-	return nil, err
+	return nil, fmt.Errorf("invalid token claims")
 }
 
 func readKeyFiles() ([]byte, []byte, error) {
+	// Try to read existing keys
 	prvKey, err := os.ReadFile(eventConf.JWTPrivateKey)
 	if err != nil {
-		fmt.Println(err)
+		// If private key doesn't exist, generate new keys
+		if os.IsNotExist(err) {
+			fmt.Println("JWT keys not found, generating new keys...")
+			return generateJWTKeys()
+		}
 		return nil, nil, err
 	}
 
 	pubKey, err := os.ReadFile(eventConf.JWTPublicKey)
 	if err != nil {
-		fmt.Println(err)
+		// If public key doesn't exist, generate new keys
+		if os.IsNotExist(err) {
+			fmt.Println("JWT keys not found, generating new keys...")
+			return generateJWTKeys()
+		}
 		return nil, nil, err
 	}
 
 	return prvKey, pubKey, nil
+}
+
+func generateJWTKeys() ([]byte, []byte, error) {
+	// Generate 2048-bit RSA key pair
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	// Encode private key to PEM
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+
+	privateKeyBytes := pem.EncodeToMemory(privateKeyPEM)
+
+	// Encode public key to PEM
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
+	}
+
+	publicKeyPEM := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+
+	publicKeyBytes = pem.EncodeToMemory(publicKeyPEM)
+
+	// Write keys to files
+	if err := os.WriteFile(eventConf.JWTPrivateKey, privateKeyBytes, 0600); err != nil {
+		return nil, nil, fmt.Errorf("failed to write private key: %w", err)
+	}
+
+	if err := os.WriteFile(eventConf.JWTPublicKey, publicKeyBytes, 0644); err != nil {
+		return nil, nil, fmt.Errorf("failed to write public key: %w", err)
+	}
+
+	fmt.Printf("Generated JWT keys:\n  Private: %s\n  Public: %s\n", eventConf.JWTPrivateKey, eventConf.JWTPublicKey)
+
+	return privateKeyBytes, publicKeyBytes, nil
 }
 
 func initCookies(router *gin.Engine) {
@@ -276,10 +330,21 @@ func isLoggedIn(c *gin.Context) (bool, error) {
 	return true, nil
 }
 
+func clearAuthCookiesAndRedirect(c *gin.Context) {
+	// Clear the auth_token cookie
+	c.SetCookie("auth_token", "", -1, "/", "*", false, true)
+	// Clear session
+	session := sessions.Default(c)
+	session.Delete("id")
+	session.Save()
+	// Redirect to home page
+	c.Redirect(http.StatusSeeOther, "/")
+}
+
 func authRequired(c *gin.Context) {
 	status, err := isLoggedIn(c)
 	if status == false || err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		clearAuthCookiesAndRedirect(c)
 		return
 	}
 	c.Next()
@@ -313,6 +378,30 @@ func contextGetClaims(c *gin.Context) (UserJWTData, error) {
 }
 
 func adminAuthRequired(c *gin.Context) {
+	claims, err := contextGetClaims(c)
+	if err != nil {
+		clearAuthCookiesAndRedirect(c)
+		return
+	}
+
+	if claims.Admin == false {
+		clearAuthCookiesAndRedirect(c)
+		return
+	}
+
+	c.Next()
+}
+
+func authRequiredAPI(c *gin.Context) {
+	status, err := isLoggedIn(c)
+	if status == false || err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	c.Next()
+}
+
+func adminAuthRequiredAPI(c *gin.Context) {
 	claims, err := contextGetClaims(c)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})

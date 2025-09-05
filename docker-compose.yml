@@ -1,10 +1,35 @@
-version: '3.3'
+version: '3.8'
 services:
   db:
     container_name: database
-    image: postgres
+    image: postgres:15-alpine
     restart: always
     env_file:
       - .env
     ports:
       - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: quotient
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config:/app/config:ro
+      - ./data/plots:/app/data/plots
+      - ./data/submissions:/app/data/submissions
+      - ./data/injects:/app/data/injects
+      - ./data/temporary:/app/data/temporary
+      - ./data/scoredfiles:/app/data/scoredfiles
+      - ./data/keys:/app/data/keys:ro
+    depends_on:
+      - db
+    environment:
+      - DB_CONNECT_URL=postgres://engineuser:${POSTGRES_PASSWORD}@db:5432/engine
+
+volumes:
+  postgres_data:

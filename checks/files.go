@@ -44,7 +44,7 @@ func GetFile(fileName string) (string, error) {
 	// this isn't really an issue since if you can
 	// edit the config, you already have as shell,
 	// but whatever. and it's only reading/hashing
-	fileContent, err := os.ReadFile("./scoredfiles/" + fileName)
+	fileContent, err := os.ReadFile("./data/scoredfiles/" + fileName)
 	if err != nil {
 		return "", err
 	}
