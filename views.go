@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -70,7 +72,12 @@ func pageData(c *gin.Context, ginMap gin.H) gin.H {
 func viewIndex(c *gin.Context) {
 	isLoggedIn, err := isLoggedIn(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Clear cookies and redirect on JWT error
+		c.SetCookie("auth_token", "", -1, "/", "*", false, true)
+		session := sessions.Default(c)
+		session.Delete("id")
+		session.Save()
+		c.Redirect(http.StatusSeeOther, "/login")
 		return
 	}
 
@@ -266,12 +273,17 @@ func viewPCRs(c *gin.Context) {
 func viewLogin(c *gin.Context) {
 	isLoggedIn, err := isLoggedIn(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		// Clear cookies and redirect on JWT error
+		c.SetCookie("auth_token", "", -1, "/", "*", false, true)
+		session := sessions.Default(c)
+		session.Delete("id")
+		session.Save()
+		// Continue to show login page after clearing invalid session
 	}
 
 	if isLoggedIn == true {
 		c.Redirect(http.StatusSeeOther, "/")
+		return
 	}
 
 	tmpl, _ := template.Must(template.ParseGlob("templates/layouts/*.html")).ParseGlob("templates/partials/*.html")
