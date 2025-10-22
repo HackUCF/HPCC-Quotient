@@ -25,9 +25,10 @@ func (c Ldap) Run(teamID uint, teamIdentifier string, target string, res chan Re
 	}
 	lconn, err := ldap.DialURL(fmt.Sprintf("%s://%s:%d", scheme, target, c.Port))
 	if err != nil {
+		debugMsg := strings.ReplaceAll("login " + username + " password " + password + " failed with error: " + err.Error(), "\x00", "")
 		res <- Result{
 			Error: "failed to connect",
-			Debug: "login " + username + " password " + password + " failed with error: " + err.Error(),
+			Debug: debugMsg,
 		}
 		return
 	}
