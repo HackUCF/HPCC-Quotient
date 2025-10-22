@@ -46,7 +46,7 @@ func (c Ldap) Run(teamID uint, teamIdentifier string, target string, res chan Re
 
 	}
 
-	authString := fmt.Sprintf("%s@%s", username, c.Domain)
+	authString := fmt.Sprintf("%s@%s", username, strings.ReplaceAll(c.Domain, "_", string(teamID)))
 	err = lconn.Bind(authString, password)
 	if err != nil {
 		res <- Result{
